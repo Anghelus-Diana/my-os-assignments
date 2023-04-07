@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#define BUFF_SIZE 64
 
 void listDir(const char *path, int perm)
 { // printf("Am intrat in ITERATIVA\n");
@@ -146,31 +145,30 @@ int parsare(const char *path)
         perror("Could not open input file");
         return 1;
     }
-//magic
+    // magic
     flagmagic = read(fd1, &magic, 4);
-    if (flagmagic< 0)
+    if (flagmagic < 0)
     {
-        
+
         perror("Could not read from input file");
         exit(1);
     }
-    else 
-    if (strncmp(magic, "0ceH", 5) != 0)
-    {   
-        //printf("magicul este:%s",magic);
+    else if (strncmp(magic, "0ceH", 5) != 0)
+    {
+        // printf("magicul este:%s",magic);
         printf("ERROR\nwrong magic");
         exit(1);
     }
 
-//headerSeize
-    flagheader= read(fd1, &headerSize, 2);
-    if (flagheader< 0)
+    // headerSeize
+    flagheader = read(fd1, &headerSize, 2);
+    if (flagheader < 0)
     {
 
         perror("Could not read from input file");
         exit(1);
     }
- ///version   
+    /// version
     flagversion = read(fd1, &version, 2);
     if (flagversion < 0)
     {
@@ -178,13 +176,12 @@ int parsare(const char *path)
         perror("Could not read from input file");
         exit(1);
     }
-    else
-    if (version < 70 || version > 122)
+    else if (version < 70 || version > 122)
     {
         printf("ERROR\nwrong version");
         exit(1);
     }
-//sectiuni
+    // sectiuni
     flagnrSections = read(fd1, &nrSections, 1);
     if (flagnrSections < 0)
     {
@@ -192,44 +189,53 @@ int parsare(const char *path)
         perror("Could not read from input file");
         exit(1);
     }
-    else 
-    if (nrSections < 5 || nrSections > 16)
-        {   
-            printf("ERROR\nwrong sect_nr");
-            exit(1);
-        }
-   printf("SUCCESS\n");
-   printf("version=%d\n",version);
-   printf("nr_sections=%d\n",nrSections);
-   
-   struct sectiune s1;
+    else if (nrSections < 5 || nrSections > 16)
+    {
+        printf("ERROR\nwrong sect_nr");
+        exit(1);
+    }
+    
+    struct sectiune s1;
 
+    for (int i = 0; i < nrSections; i++)
+    {
+        read(fd1, &s1.sect_name, 9);
 
-   for(int i=0;i<nrSections;i++)
-   {  printf("section%d: ",i+1);
-      read(fd1, &s1.sect_name, 9);
-      printf("%s ",s1.sect_name);
-
-      read(fd1, &s1.sect_type, 4);
-      if(s1.sect_type==74 || s1.sect_type==83 || s1.sect_type==95 || s1.sect_type==58 ||s1.sect_type==85)
-      {
-        printf("%d ",s1.sect_type);
-      }
-      else 
-      {   
+        read(fd1, &s1.sect_type, 4);
+        if (!(s1.sect_type == 74 || s1.sect_type == 83 || s1.sect_type == 95 || s1.sect_type == 58 || s1.sect_type == 85))
+        {
             printf("ERROR\nwrong sect_types");
             exit(1);
         }
+        read(fd1, &s1.sect_offset, 4);
+        read(fd1, &s1.sect_size, 4);
+    }
 
-      read(fd1, &s1.sect_offset, 4);
-      
-    
-      read(fd1, &s1.sect_size, 4);
-      printf("%d ",s1.sect_size);
+   lseek(fd1, 9, SEEK_SET);
+   printf("SUCCESS\n");
+   printf("version=%d\n", version);
+   printf("nr_sections=%d\n", nrSections);
 
-      printf("\n");
+    for (int i = 0; i < nrSections; i++)
+    {
+        printf("section%d: ", i + 1);
+        read(fd1, &s1.sect_name, 9);
+        char str[10];
+        strncpy(str,s1.sect_name,9);
+        str[9]='\0';
+        printf("%s ", str);
+
+        read(fd1, &s1.sect_type, 4);
+        printf("%d ", s1.sect_type);
       
-   }
+
+        read(fd1, &s1.sect_offset, 4);
+
+        read(fd1, &s1.sect_size, 4);
+        printf("%d ", s1.sect_size);
+
+        printf("\n");
+    }
 
     return 0;
 }
@@ -313,7 +319,7 @@ int main(int argc, char **argv)
         }
         else if ((strcmp(argv[1], "parse") == 0) && (strncmp(argv[2], "path=", 5)) == 0)
         {
-            //printf("Am intrat in 8\n");
+            // printf("Am intrat in 8\n");
             strcpy(substring, argv[2]);
 
             parsare(substring + 5);
