@@ -53,72 +53,7 @@ void listDir(const char *path, int perm)
     closedir(dir);
 }
 
-void listRecursiv(const char *path, int perm)
-{ // printf("Am intrat in recursiva\n");
-    DIR *dir = NULL;
-    struct dirent *entry = NULL;
-    char fullPath[512];
-    struct stat statbuf;
-
-    dir = opendir(path);
-    if (dir == NULL)
-    {
-        perror("Could not open directory");
-        return;
-    }
-
-    while ((entry = readdir(dir)) != NULL)
-    {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
-        {
-            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
-            if (lstat(fullPath, &statbuf) == 0)
-            {
-                if (perm == 1)
-                {
-                    if ((statbuf.st_mode & 0200) != 0)
-                    {
-                        printf("%s\n", fullPath);
-                        if (S_ISDIR(statbuf.st_mode))
-                        {
-                            listRecursiv(fullPath, perm);
-                        }
-                    }
-                    else if (S_ISDIR(statbuf.st_mode))
-
-                        listRecursiv(fullPath, perm);
-                }
-                else if (perm != 1 && perm != 0)
-                {
-                    if (stat(fullPath, &statbuf) == 0 && S_ISREG(statbuf.st_mode))
-                    {
-                        if (statbuf.st_size < perm)
-                        { // printf("%ld\n",statbuf.st_size );
-                            printf("%s\n", fullPath);
-                            if (S_ISDIR(statbuf.st_mode))
-
-                                listRecursiv(fullPath, perm);
-                        }
-                    }
-                    else if (S_ISDIR(statbuf.st_mode))
-
-                        listRecursiv(fullPath, perm);
-                }
-                else
-                {
-                    printf("%s\n", fullPath);
-                    if (S_ISDIR(statbuf.st_mode))
-
-                        listRecursiv(fullPath, perm);
-                }
-            }
-        }
-    }
-
-    closedir(dir);
-}
-
-int verificareParsare(const char *path, int sect, int linie)
+int verificareParsare(const char *path, int sect, int linie, int ok)
 {
     int fd1 = -1;
     char magic[5] = "\0";
@@ -199,75 +134,193 @@ int verificareParsare(const char *path, int sect, int linie)
         // exit(1);
         return -1;
     }
-
-    struct sectiune s1;
-    // int ok=0;
-
-    if (sect > nrSections)
+    
+    if (ok == 1)
     {
-        printf("ERROR\nInvalid section");
-        return -1;
-    }
-
-    for (int i = 0; i < sect; i++)
-    {
-        read(fd1, &s1.sect_name, 9);
-
-        read(fd1, &s1.sect_type, 4);
-        if (!(s1.sect_type == 74 || s1.sect_type == 83 || s1.sect_type == 95 || s1.sect_type == 58 || s1.sect_type == 85))
+        struct sectiune s1;
+        if (sect > nrSections)
         {
-            // printf("ERROR\nwrong sect_types");
-            // exit(1);
+            printf("ERROR\nInvalid section");
             return -1;
         }
-        read(fd1, &s1.sect_offset, 4);
-        read(fd1, &s1.sect_size, 4);
-    }
 
-    
-    lseek(fd1, s1.sect_offset, SEEK_SET);
-    read(fd1, &buffer, s1.sect_size);
-    // printf("%s\n",buffer);
-    char *sir = strtok(buffer, "\n");
-    //int nr1 = 0;
-    int nr = 0;
-    while (sir != NULL)
-    {
-        nr++;
-        //printf("Linia cu nr%d:%s\n",nr,sir);
-        sir = strtok(NULL, "\n");
-    }
-
-
-if (linie > nr)
-    {
-        printf("ERROR\ninvalid line");
-        exit(1);
-    }
-
-    int nr2 = nr - linie+1;
-    //printf("nr2=%d\n",nr2);
-     //printf("linie=%d\n",linie);
-
-
-     
-    printf("SUCCESS\n");
-    lseek(fd1, s1.sect_offset, SEEK_SET);
-    read(fd1, &buffer, s1.sect_size);
-    sir = strtok(buffer, "\n");
-    nr = 0;
-    while (sir != NULL)
-    {
-        nr++;
-        if (nr == nr2)
+        for (int i = 0; i < sect; i++)
         {
-            printf("%s\n", sir);
-            break;
+            read(fd1, &s1.sect_name, 9);
+
+            read(fd1, &s1.sect_type, 4);
+            if (!(s1.sect_type == 74 || s1.sect_type == 83 || s1.sect_type == 95 || s1.sect_type == 58 || s1.sect_type == 85))
+            {
+                return -1;
+            }
+            read(fd1, &s1.sect_offset, 4);
+            read(fd1, &s1.sect_size, 4);
         }
-        sir = strtok(NULL, "\n");
+
+        lseek(fd1, s1.sect_offset, SEEK_SET);
+        read(fd1, &buffer, s1.sect_size);
+        char *sir = strtok(buffer, "\n");
+        int nr = 0;
+        while (sir != NULL)
+        {
+            nr++;
+            sir = strtok(NULL, "\n");
+        }
+
+        if (linie > nr)
+        {
+            printf("ERROR\ninvalid line");
+            exit(1);
+        }
+
+        int nr2 = nr - linie + 1;
+
+        printf("SUCCESS\n");
+        lseek(fd1, s1.sect_offset, SEEK_SET);
+        read(fd1, &buffer, s1.sect_size);
+        sir = strtok(buffer, "\n");
+        nr = 0;
+        while (sir != NULL)
+        {
+            nr++;
+            if (nr == nr2)
+            {
+                printf("%s\n", sir);
+                break;
+            }
+            sir = strtok(NULL, "\n");
+        }
+    }
+    else if (ok == 2)
+    {   //printf("Nr de sectiuni este:%d\n",nrSections);
+        int iteratii=0;
+        int sectCu15 = 0;
+        struct sectiune s1;
+        //int size=0;
+        for (int i = 0; i < nrSections; i++)
+        {
+        iteratii++;
+            //sectCu15 = 0;
+            read(fd1, &s1.sect_name, 9);
+            read(fd1, &s1.sect_type, 4);
+            if (!(s1.sect_type == 74 || s1.sect_type == 83 || s1.sect_type == 95 || s1.sect_type == 58 || s1.sect_type == 85))
+            {
+                return -1;
+            }
+            read(fd1, &s1.sect_offset, 4);
+            read(fd1, &s1.sect_size, 4);
+            
+            //printf("Offset%d\n",s1.sect_offset);
+            lseek(fd1, s1.sect_offset, SEEK_SET);
+            read(fd1, &buffer, s1.sect_size);
+            //printf("Sectiunea e valida\n");
+            char *sir = strtok(buffer, "\n");
+            int nr = 0;
+            //printf("Bufferul este:%s\n",buffer);
+            while (sir != NULL)
+            {
+                nr++;
+                //printf("%s\n",sir);
+                sir = strtok(NULL, "\n");
+            }
+            //nr++;
+            //printf("Nr de linii este %d\n",nr);
+            if (nr == 15)
+                {sectCu15++;
+                //printf("Nr de sectiuni este %d\n",nr);
+                }
+                //printf("Nr de sectiuni este %d\n",sectCu15);
+                //printf("Nr de iteratii %d:\n",iteratii);
+                //printf("i=%d\n",i);
+                
+            //printf("\n");
+            //size+=s1.sect_size;
+
+            lseek(fd1, 9+21*(i+1), SEEK_SET);
+        }
+         //printf("Nr de iteratii %d:\n",iteratii);
+        if (sectCu15 >= 2)
+            return 5;
     }
 
     return 0;
+}
+void listRecursiv(const char *path, int perm)
+{ // printf("Am intrat in recursiva\n");
+    DIR *dir = NULL;
+    struct dirent *entry = NULL;
+    char fullPath[512];
+    struct stat statbuf;
+
+    dir = opendir(path);
+    if (dir == NULL)
+    {
+        perror("Could not open directory");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        {
+            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
+            if (lstat(fullPath, &statbuf) == 0)
+            {
+                if (perm == 1)
+                {
+                    if ((statbuf.st_mode & 0200) != 0)
+                    {
+                        printf("%s\n", fullPath);
+                        if (S_ISDIR(statbuf.st_mode))
+                        {
+                            listRecursiv(fullPath, perm);
+                        }
+                    }
+                    else if (S_ISDIR(statbuf.st_mode))
+
+                        listRecursiv(fullPath, perm);
+                }
+                else if (perm == 2)
+                {  //printf("Am intrat in listRecursiv\n");
+
+                    int afis = verificareParsare(fullPath, 0, 0, 2);
+                    if (afis == 5)
+                        printf("%s\n", fullPath);
+                    if (S_ISDIR(statbuf.st_mode))
+                    {
+                        listRecursiv(fullPath, perm);
+                    }
+                }
+                else if (perm != 1 && perm != 0 && perm != 2)
+                {
+                    if (stat(fullPath, &statbuf) == 0 && S_ISREG(statbuf.st_mode))
+                    {
+                        if (statbuf.st_size < perm)
+                        {
+
+                            printf("%s\n", fullPath);
+
+                            if (S_ISDIR(statbuf.st_mode))
+
+                                listRecursiv(fullPath, perm);
+                        }
+                    }
+                    else if (S_ISDIR(statbuf.st_mode))
+
+                        listRecursiv(fullPath, perm);
+                }
+                else
+                {
+                    printf("%s\n", fullPath);
+                    if (S_ISDIR(statbuf.st_mode))
+
+                        listRecursiv(fullPath, perm);
+                }
+            }
+        }
+    }
+
+    closedir(dir);
 }
 
 int parsare(const char *path)
@@ -390,10 +443,10 @@ int parsare(const char *path)
 
     return 0;
 }
-void extract(char *path, int sect, int linie)
+void extract(char *path, int sect, int linie, int ok)
 {
-    int ok = verificareParsare(path, sect, linie);
-    if (ok == -1)
+    int decizie = verificareParsare(path, sect, linie, ok);
+    if (decizie == -1)
     {
         printf("ERROR\ninvalid file");
         exit(1);
@@ -500,7 +553,13 @@ int main(int argc, char **argv)
             nrlinie = (int)atoi(sect);
             // printf("Nr liniei este %d\n",nrlinie);
 
-            extract(substring + 5, nrsect, nrlinie);
+            extract(substring + 5, nrsect, nrlinie, 1);
+        }
+        else if ((strcmp(argv[1], "findall") == 0) && (strncmp(argv[2], "path=", 5)) == 0)
+        {     //printf("Am intrat in 10\n");
+            strcpy(substring, argv[2]);
+            printf("SUCCESS\n");
+            listRecursiv(substring + 5, 2);
         }
     }
 
