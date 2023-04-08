@@ -118,6 +118,158 @@ void listRecursiv(const char *path, int perm)
     closedir(dir);
 }
 
+int verificareParsare(const char *path, int sect, int linie)
+{
+    int fd1 = -1;
+    char magic[5] = "\0";
+    int headerSize = 0;
+    int version = 0;
+    int nrSections = 0;
+
+    ssize_t flagmagic;
+    ssize_t flagheader;
+    ssize_t flagversion;
+    ssize_t flagnrSections;
+
+    char buffer[2000000] = "";
+
+    struct sectiune
+    {
+        char sect_name[10];
+        int sect_type;
+        int sect_offset;
+        int sect_size;
+    };
+
+    fd1 = open(path, O_RDONLY);
+    if (fd1 == -1)
+    {
+        perror("Could not open input file");
+        return 1;
+    }
+    // magic
+    flagmagic = read(fd1, &magic, 4);
+    if (flagmagic < 0)
+    {
+
+        perror("Could not read from input file");
+        exit(1);
+    }
+    else if (strncmp(magic, "0ceH", 5) != 0)
+    {
+        // printf("magicul este:%s",magic);
+        // printf("ERROR\nwrong magic");
+        // exit(1);
+        return -1;
+    }
+
+    // headerSeize
+    flagheader = read(fd1, &headerSize, 2);
+    if (flagheader < 0)
+    {
+
+        perror("Could not read from input file");
+        exit(1);
+    }
+    /// version
+    flagversion = read(fd1, &version, 2);
+    if (flagversion < 0)
+    {
+
+        perror("Could not read from input file");
+        exit(1);
+    }
+    else if (version < 70 || version > 122)
+    {
+        // printf("ERROR\nwrong version");
+        // exit(1);
+        return -1;
+    }
+    // sectiuni
+    flagnrSections = read(fd1, &nrSections, 1);
+    if (flagnrSections < 0)
+    {
+
+        perror("Could not read from input file");
+        exit(1);
+    }
+    else if (nrSections < 5 || nrSections > 16)
+    {
+        // printf("ERROR\nwrong sect_nr");
+        // exit(1);
+        return -1;
+    }
+
+    struct sectiune s1;
+    // int ok=0;
+
+    if (sect > nrSections)
+    {
+        printf("ERROR\nInvalid section");
+        return -1;
+    }
+
+    for (int i = 0; i < sect; i++)
+    {
+        read(fd1, &s1.sect_name, 9);
+
+        read(fd1, &s1.sect_type, 4);
+        if (!(s1.sect_type == 74 || s1.sect_type == 83 || s1.sect_type == 95 || s1.sect_type == 58 || s1.sect_type == 85))
+        {
+            // printf("ERROR\nwrong sect_types");
+            // exit(1);
+            return -1;
+        }
+        read(fd1, &s1.sect_offset, 4);
+        read(fd1, &s1.sect_size, 4);
+    }
+
+    
+    lseek(fd1, s1.sect_offset, SEEK_SET);
+    read(fd1, &buffer, s1.sect_size);
+    // printf("%s\n",buffer);
+    char *sir = strtok(buffer, "\n");
+    //int nr1 = 0;
+    int nr = 0;
+    while (sir != NULL)
+    {
+        nr++;
+        //printf("Linia cu nr%d:%s\n",nr,sir);
+        sir = strtok(NULL, "\n");
+    }
+
+
+if (linie > nr)
+    {
+        printf("ERROR\ninvalid line");
+        exit(1);
+    }
+
+    int nr2 = nr - linie+1;
+    //printf("nr2=%d\n",nr2);
+     //printf("linie=%d\n",linie);
+
+
+     
+    printf("SUCCESS\n");
+    lseek(fd1, s1.sect_offset, SEEK_SET);
+    read(fd1, &buffer, s1.sect_size);
+    sir = strtok(buffer, "\n");
+    nr = 0;
+    while (sir != NULL)
+    {
+        nr++;
+        if (nr == nr2)
+        {
+            printf("%s\n", sir);
+            break;
+        }
+        sir = strtok(NULL, "\n");
+    }
+
+    return 0;
+}
+
 int parsare(const char *path)
 {
     int fd1 = -1;
@@ -194,7 +346,7 @@ int parsare(const char *path)
         printf("ERROR\nwrong sect_nr");
         exit(1);
     }
-    
+
     struct sectiune s1;
 
     for (int i = 0; i < nrSections; i++)
@@ -211,23 +363,22 @@ int parsare(const char *path)
         read(fd1, &s1.sect_size, 4);
     }
 
-   lseek(fd1, 9, SEEK_SET);
-   printf("SUCCESS\n");
-   printf("version=%d\n", version);
-   printf("nr_sections=%d\n", nrSections);
+    lseek(fd1, 9, SEEK_SET);
+    printf("SUCCESS\n");
+    printf("version=%d\n", version);
+    printf("nr_sections=%d\n", nrSections);
 
     for (int i = 0; i < nrSections; i++)
     {
         printf("section%d: ", i + 1);
         read(fd1, &s1.sect_name, 9);
         char str[10];
-        strncpy(str,s1.sect_name,9);
-        str[9]='\0';
+        strncpy(str, s1.sect_name, 9);
+        str[9] = '\0';
         printf("%s ", str);
 
         read(fd1, &s1.sect_type, 4);
         printf("%d ", s1.sect_type);
-      
 
         read(fd1, &s1.sect_offset, 4);
 
@@ -239,7 +390,15 @@ int parsare(const char *path)
 
     return 0;
 }
-
+void extract(char *path, int sect, int linie)
+{
+    int ok = verificareParsare(path, sect, linie);
+    if (ok == -1)
+    {
+        printf("ERROR\ninvalid file");
+        exit(1);
+    }
+}
 int main(int argc, char **argv)
 {
     char substring[256] = "";
@@ -323,6 +482,25 @@ int main(int argc, char **argv)
             strcpy(substring, argv[2]);
 
             parsare(substring + 5);
+        }
+
+        else if ((strcmp(argv[1], "extract") == 0) && (strncmp(argv[2], "path=", 5)) == 0 && (strncmp(argv[3], "section=", 8)) == 0 && (strncmp(argv[4], "line=", 5)) == 0)
+        {
+            // printf("Am intrat in 9\n");
+            int nrsect = 0;
+            int nrlinie = 0;
+            char sect[100] = "";
+
+            strcpy(sect, argv[3] + 8);
+            nrsect = (int)atoi(sect);
+            // printf("Nr sectiunii este %d\n",nrsect);
+            strcpy(substring, argv[2]);
+
+            strcpy(sect, argv[4] + 5);
+            nrlinie = (int)atoi(sect);
+            // printf("Nr liniei este %d\n",nrlinie);
+
+            extract(substring + 5, nrsect, nrlinie);
         }
     }
 
